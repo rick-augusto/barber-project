@@ -1,9 +1,12 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
-import { GeistSans } from 'geist/font/sans'; // 1. Importe a fonte do pacote correto
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "Barber Project", // Você pode alterar o título aqui
+  title: "Barber Project",
   description: "Sistema de agendamento para barbearias",
 };
 
@@ -14,10 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-br">
-      {/* 2. Aplique a classe da fonte ao corpo da página */}
-      <body className={GeistSans.className}>
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
