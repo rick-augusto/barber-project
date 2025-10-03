@@ -97,7 +97,7 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
     };
 
     return (
-         <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8">
+         <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8 text-gray-800">
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>

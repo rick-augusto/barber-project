@@ -1,11 +1,17 @@
-// src/app/agendar/barbeiro/[servicoId]/page.tsx
+// src/app/agendar/barbeiros/[servicoId]/page.tsx
 'use client'
 
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import Image from "next/image"; // Importar o componente de Imagem
 import { useEffect, useState } from "react";
 
-type Barbeiro = { id: string; nome_completo: string | null; }
+// Atualizar o tipo para incluir a URL do avatar
+type Barbeiro = { 
+    id: string; 
+    nome_completo: string | null;
+    avatar_url: string | null; 
+}
 
 export default function EscolherBarbeiroPage({ params }: { params: { servicoId: string } }) {
     const [barbeiros, setBarbeiros] = useState<Barbeiro[]>([]);
@@ -13,7 +19,6 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
 
     useEffect(() => {
         const fetchBarbeiros = async () => {
-            // Busca IDs dos barbeiros que têm a habilidade
             const { data: habilidades, error: errHab } = await supabase
                 .from('barbeiro_habilidades')
                 .select('barbeiro_id')
@@ -26,10 +31,10 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
 
             const barbeiroIds = habilidades.map(h => h.barbeiro_id);
 
-            // Busca os perfis desses barbeiros
+            // Atualizar a busca para incluir o avatar_url
             const { data, error } = await supabase
                 .from('perfis')
-                .select('id, nome_completo')
+                .select('id, nome_completo, avatar_url')
                 .in('id', barbeiroIds);
 
             if (error) alert("Erro ao carregar barbeiros.");
@@ -54,7 +59,12 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
                     {loading ? <p>Buscando profissionais...</p> : (
                         <div className="space-y-4">
                             {barbeiros.length > 0 ? barbeiros.map(barbeiro => (
-                                <Link key={barbeiro.id} href={`/agendar/horarios/${barbeiro.id}/${params.servicoId}`} className="block rounded-lg border border-gray-200 p-4 text-center transition hover:bg-gray-50 hover:shadow-md">
+                                <Link key={barbeiro.id} href={`/agendar/horarios/${barbeiro.id}/${params.servicoId}`} className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
+                                    {barbeiro.avatar_url ? (
+                                        <Image src={barbeiro.avatar_url} alt={`Foto de ${barbeiro.nome_completo}`} width={56} height={56} className="h-14 w-14 rounded-full object-cover"/>
+                                    ) : (
+                                        <div className="h-14 w-14 rounded-full bg-gray-300"/>
+                                    )}
                                     <h3 className="text-lg font-semibold text-gray-900">{barbeiro.nome_completo}</h3>
                                 </Link>
                             )) : <p>Nenhum barbeiro disponível para este serviço.</p>}

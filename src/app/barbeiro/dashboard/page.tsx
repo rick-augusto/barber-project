@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import GerenciarHorarios from '@/components/barbeiro/GerenciarHorarios';
 import GerenciarHabilidades from '@/components/barbeiro/GerenciarHabilidades';
+import GerenciarAvatar from '@/components/barbeiro/GerenciarAvatar';
 
 export default function BarbeiroDashboard() {
     const router = useRouter();
@@ -57,12 +58,13 @@ export default function BarbeiroDashboard() {
                 </button>
             </header>
             <main className="space-y-8">
-                {user && (
-                    <>
-                        <GerenciarHorarios userId={user.id} />
-                        <GerenciarHabilidades userId={user.id} />
-                    </>
-                )}
+    {user && (
+        <>
+            <GerenciarAvatar userId={user.id} />
+            <GerenciarHorarios userId={user.id} />
+            <GerenciarHabilidades userId={user.id} />
+        </>
+    )}
             </main>
         </div>
     );

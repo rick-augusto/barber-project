@@ -33,7 +33,7 @@ export default function EscolherServicoPage() {
                     {loading ? <p>Carregando serviços...</p> : (
                         <div className="space-y-4">
                             {servicos.map(servico => (
-                                <Link key={servico.id} href={`/agendar/barbeiro/${servico.id}`} className="block rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
+                                <Link key={servico.id} href={`/agendar/barbeiros/${servico.id}`} className="block rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <h3 className="text-lg font-semibold text-gray-900">{servico.nome}</h3>
