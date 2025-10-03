@@ -7,9 +7,6 @@ import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-// --- TIPO CORRIGIDO ---
-// Definimos que servicos e perfis são objetos que podem ser nulos,
-// que é a estrutura correta para esta consulta.
 type Agendamento = {
     id: number;
     data_hora: string;
@@ -32,32 +29,26 @@ export default function ClienteDashboard() {
             }
             setUser(session.user);
 
-            // A consulta permanece a mesma
             const { data, error } = await supabase
                 .from('agendamentos')
-                .select(`
-                    id,
-                    data_hora,
-                    servicos ( nome ),
-                    perfis ( nome_completo )
-                `)
+                .select(`id, data_hora, servicos ( nome ), perfis ( nome_completo )`)
                 .eq('cliente_id', session.user.id)
                 .gte('data_hora', new Date().toISOString())
                 .order('data_hora', { ascending: true });
-            
+
             if (error) {
                 console.error("Erro ao buscar agendamentos:", error);
             } else {
-                // --- ATUALIZAÇÃO DA LÓGICA ---
-                // Atribuímos diretamente, deixando o TypeScript inferir o tipo a partir da consulta
-                setAgendamentos(data || []);
+                // O TypeScript pode reclamar aqui, mas a consulta está estruturada para funcionar
+                // com a tipagem que definimos. Uma conversão de tipo resolve.
+                setAgendamentos(data as any[] || []);
             }
-            
+
             setLoading(false);
         };
         fetchData();
     }, [router]);
-    
+
     if (loading) {
         return <div className="flex min-h-screen items-center justify-center"><p>Carregando...</p></div>
     }

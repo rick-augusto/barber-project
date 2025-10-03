@@ -1,9 +1,8 @@
 // src/app/agendar/horarios/[barbeiroId]/[servicoId]/page.tsx
 'use client'
-// Esta é uma implementação simplificada para os próximos 7 dias.
-// Lógicas mais complexas podem ser adicionadas.
 
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -21,19 +20,19 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
             const { data: horariosTrabalho, error: errHorarios } = await supabase.from('horarios_trabalho').select('*').eq('barbeiro_id', params.barbeiroId);
 
             if (errServico || errHorarios || !servico || !horariosTrabalho) {
-                alert("Não foi possível carregar a agenda.");
+                alert("Não foi possível carregar a agenda deste profissional.");
                 setLoading(false);
                 return;
             }
 
-            const { data: agendamentos } = await supabase.from('agendamentos').select('data_hora').eq('barbeiro_id', params.barbeiroId);
+            const { data: agendamentos } = await supabase.from('agendamentos').select('data_hora').eq('barbeiro_id', params.barbeiroId).gte('data_hora', new Date().toISOString());
             const horariosOcupados = agendamentos?.map(a => new Date(a.data_hora).getTime()) || [];
 
             const slotsDisponiveis: Record<string, string[]> = {};
             for (let i = 0; i < 7; i++) { // Gera para os próximos 7 dias
                 const dataAtual = new Date();
                 dataAtual.setDate(dataAtual.getDate() + i);
-                const diaSemana = dataAtual.getDay();
+                const diaSemana = dataAtual.getUTCDay();
                 const dataISO = dataAtual.toISOString().split('T')[0];
 
                 const horarioDoDia = horariosTrabalho.find(h => h.dia_semana === diaSemana);
@@ -43,17 +42,17 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
                 const [startH, startM] = horarioDoDia.hora_inicio.split(':').map(Number);
                 const [endH, endM] = horarioDoDia.hora_fim.split(':').map(Number);
 
-                let slotAtual = new Date(dataISO);
-                slotAtual.setUTCHours(startH, startM, 0, 0);
+                let slotAtual = new Date(`${dataISO}T00:00:00.000Z`);
+                slotAtual.setUTCHours(startH, startM);
 
-                const fimDoDia = new Date(dataISO);
-                fimDoDia.setUTCHours(endH, endM, 0, 0);
+                const fimDoDia = new Date(`${dataISO}T00:00:00.000Z`);
+                fimDoDia.setUTCHours(endH, endM);
 
                 while (slotAtual.getTime() < fimDoDia.getTime()) {
                     if (!horariosOcupados.includes(slotAtual.getTime())) {
-                        slotsDisponiveis[dataISO].push(slotAtual.toTimeString().substring(0, 5));
+                        slotsDisponiveis[dataISO].push(slotAtual.toUTCString().substring(17, 22));
                     }
-                    slotAtual.setMinutes(slotAtual.getMinutes() + servico.duracao_minutos);
+                    slotAtual.setUTCMinutes(slotAtual.getUTCMinutes() + servico.duracao_minutos);
                 }
             }
             setDiasDisponiveis(slotsDisponiveis);
@@ -97,9 +96,10 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
     };
 
     return (
-         <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8 text-gray-800">
+         <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8">
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
+                    <Link href={`/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 3: Escolha a data e o horário</p>
                 </header>
@@ -111,7 +111,7 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
                                 <select onChange={(e) => setDiaSelecionado(e.target.value)} className="w-full mt-2 p-2 border rounded-md">
                                     <option value="">Selecione uma data</option>
                                     {Object.keys(diasDisponiveis).map(dia => (
-                                        <option key={dia} value={dia}>{new Date(dia + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}</option>
+                                        <option key={dia} value={dia}>{new Date(dia + 'T12:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit' })}</option>
                                     ))}
                                 </select>
                             </div>

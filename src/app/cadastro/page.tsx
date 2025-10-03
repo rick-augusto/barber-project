@@ -47,7 +47,7 @@ export default function CadastroPage() {
       return;
     }
 
-    // Redireciona direto para o painel do cliente
+    // Redireciona direto para o painel do cliente, já logado
     router.push('/cliente/dashboard');
   };
 
