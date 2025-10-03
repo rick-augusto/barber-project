@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
-import { useBarbearia } from '@/contexts/BarbeariaContext' // Importado
+import { useBarbearia } from '@/contexts/BarbeariaContext'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -12,14 +12,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const { setBarbearia } = useBarbearia(); // Pegamos a função do contexto
+  const { setBarbearia } = useBarbearia();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    setBarbearia(null); // Limpa a barbearia anterior
+    setBarbearia(null);
 
+    // 1. Autenticar o usuário
     const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -31,33 +32,56 @@ export default function LoginPage() {
       return;
     }
 
-    if (loginData.user) {
-      // Busca o perfil e os dados da barbearia associada
-      const { data: profile } = await supabase
-        .from('perfis')
-        .select(`
-          funcao,
-          barbearias ( id, nome, slug )
-        `)
-        .eq('id', loginData.user.id)
+    if (!loginData || !loginData.user) {
+        setError("Ocorreu um erro inesperado no login.");
+        setLoading(false);
+        return;
+    }
+
+    // 2. Buscar APENAS o perfil do usuário (consulta simples e confiável)
+    const { data: profile, error: profileError } = await supabase
+      .from('perfis')
+      .select('funcao, id_barbearia')
+      .eq('id', loginData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      setError('Perfil de usuário não encontrado após o login. Verifique se o cadastro foi concluído.');
+      await supabase.auth.signOut();
+      setLoading(false);
+      return;
+    }
+
+    // 3. SE o perfil for de admin ou barbeiro, buscar os detalhes da barbearia (consulta separada)
+    if (profile.id_barbearia) {
+      const { data: barbeariaData, error: barbeariaError } = await supabase
+        .from('barbearias')
+        .select('id, nome, slug')
+        .eq('id', profile.id_barbearia)
         .single();
-
-      if (profile) {
-        // Salva os dados da barbearia no contexto global
-        if (profile.barbearias) {
-          setBarbearia(profile.barbearias as any);
-        }
-
-        // Redireciona com base na função
-        if (profile.funcao === 'admin') router.push('/admin/dashboard');
-        else if (profile.funcao === 'barbeiro') router.push('/barbeiro/dashboard');
-        else router.push('/cliente/dashboard');
-      } else {
-        setError('Perfil de usuário não encontrado.');
+      
+      if (barbeariaError) {
+        setError('Não foi possível carregar os dados da barbearia associada.');
         await supabase.auth.signOut();
         setLoading(false);
+        return;
       }
+      // Salva os dados da barbearia no contexto global
+      setBarbearia(barbeariaData);
     }
+
+    // 4. Redirecionar o usuário
+    const redirectTo = localStorage.getItem('redirectTo');
+    if (redirectTo) {
+      localStorage.removeItem('redirectTo');
+      router.push(redirectTo);
+    } else {
+      if (profile.funcao === 'admin') router.push('/admin/dashboard');
+      else if (profile.funcao === 'barbeiro') router.push('/barbeiro/dashboard');
+      else router.push('/cliente/dashboard');
+    }
+    
+    setLoading(false);
   };
 
   return (

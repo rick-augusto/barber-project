@@ -2,10 +2,9 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation"; // 1. usePathname importado
 import { useEffect, useState } from "react";
 
-// A página agora recebe 'slug' nos parâmetros, além dos outros IDs
 export default function EscolherHorarioPage({ params }: { params: { slug: string, barbeiroId: string, servicoId: string } }) {
     const [diasDisponiveis, setDiasDisponiveis] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(true);
@@ -13,34 +12,37 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
     const [horarioSelecionado, setHorarioSelecionado] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
+    const pathname = usePathname(); // 2. Hook para pegar a URL atual
 
     useEffect(() => {
         const gerarHorarios = async () => {
             const { data: servico, error: errServico } = await supabase.from('servicos').select('duracao_minutos').eq('id', params.servicoId).single();
             const { data: horariosTrabalho, error: errHorarios } = await supabase.from('horarios_trabalho').select('*').eq('barbeiro_id', params.barbeiroId);
 
-            if (errServico || errHorarios || !servico || !horariosTrabalho) {
-                alert("Não foi possível carregar a agenda deste profissional.");
+            if (errServico || errHorarios || !servico || !horariosTrabalho || horariosTrabalho.length === 0) {
+                alert("Não foi possível carregar a agenda deste profissional. Verifique se ele configurou seus horários.");
                 setLoading(false);
                 return;
             }
 
             const { data: agendamentos } = await supabase.from('agendamentos').select('data_hora').eq('barbeiro_id', params.barbeiroId).gte('data_hora', new Date().toISOString());
-            const horariosOcupados = agendamentos?.map(a => new Date(a.data_hora).getTime()) || [];
+            const horariosOcupados = new Set(agendamentos?.map(a => new Date(a.data_hora).getTime()) || []);
 
             const slotsDisponiveis: Record<string, string[]> = {};
             for (let i = 0; i < 7; i++) {
                 const dataAtual = new Date();
-                dataAtual.setUTCHours(0, 0, 0, 0); // Zera a hora para evitar problemas de fuso
+                dataAtual.setUTCHours(0, 0, 0, 0);
                 dataAtual.setUTCDate(dataAtual.getUTCDate() + i);
 
-                const diaSemana = dataAtual.getUTCDay(); // 0 = Domingo, 1 = Segunda...
-                const dataISO = dataAtual.toISOString().split('T')[0];
+                const diaSemanaJS = dataAtual.getUTCDay();
+                const diaSemanaBD = diaSemanaJS === 0 ? 7 : diaSemanaJS;
 
-                const horarioDoDia = horariosTrabalho.find(h => h.dia_semana === diaSemana);
+                const horarioDoDia = horariosTrabalho.find(h => h.dia_semana === diaSemanaBD);
                 if (!horarioDoDia) continue;
 
+                const dataISO = dataAtual.toISOString().split('T')[0];
                 slotsDisponiveis[dataISO] = [];
+
                 const [startH, startM] = horarioDoDia.hora_inicio.split(':').map(Number);
                 const [endH, endM] = horarioDoDia.hora_fim.split(':').map(Number);
 
@@ -51,7 +53,7 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
                 fimDoDia.setUTCHours(endH, endM);
 
                 while (slotAtual.getTime() < fimDoDia.getTime()) {
-                    if (!horariosOcupados.includes(slotAtual.getTime())) {
+                    if (!horariosOcupados.has(slotAtual.getTime())) {
                         const horaFormatada = slotAtual.getUTCHours().toString().padStart(2, '0');
                         const minutoFormatado = slotAtual.getUTCMinutes().toString().padStart(2, '0');
                         slotsDisponiveis[dataISO].push(`${horaFormatada}:${minutoFormatado}`);
@@ -65,17 +67,20 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
 
         gerarHorarios();
     }, [params.barbeiroId, params.servicoId]);
-    
+
     const handleConfirmarAgendamento = async () => {
-        // A lógica de confirmação permanece a mesma, pois não depende do slug
         if (!diaSelecionado || !horarioSelecionado) {
             alert("Por favor, selecione um dia e um horário.");
             return;
         }
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
+
+        // --- 3. LÓGICA DE REDIRECIONAMENTO ---
         if (!user) {
-            alert("Você precisa estar logado para agendar.");
+            alert("Você precisa estar logado para agendar. Vamos te redirecionar para a página de login.");
+            // Guardamos a URL atual para saber para onde voltar
+            localStorage.setItem('redirectTo', pathname);
             router.push('/login');
             return;
         }
@@ -89,7 +94,6 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
             barbeiro_id: params.barbeiroId,
             servico_id: params.servicoId,
             data_hora: dataHoraAgendamento.toISOString(),
-            // Futuramente, podemos adicionar o barbearia_id aqui também
         });
 
         if (error) {
@@ -105,7 +109,6 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
          <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8 text-gray-800">
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
-                    {/* O link de "Voltar" agora usa o slug dinâmico */}
                     <Link href={`/${params.slug}/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 3: Escolha a data e o horário</p>
@@ -131,7 +134,7 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
                                             <button key={hora} onClick={() => setHorarioSelecionado(hora)} className={`p-2 rounded-md text-center transition ${horarioSelecionado === hora ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}>
                                                 {hora}
                                             </button>
-                                        )) : <p>Nenhum horário disponível para este dia.</p>}
+                                        )) : <p className="text-gray-500">Nenhum horário disponível para este dia.</p>}
                                     </div>
                                 </div>
                             )}

@@ -1,4 +1,3 @@
-// src/app/cliente/dashboard/page.tsx
 'use client'
 
 import { useRouter } from 'next/navigation';
@@ -8,18 +7,11 @@ import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Image from 'next/image';
 
-// TIPO CORRETO: A estrutura real dos dados é com OBJETOS.
 type Agendamento = {
     id: number;
     data_hora: string;
-    servicos: { 
-        nome: string; 
-        preco: number; 
-    } | null;
-    barbeiro: { 
-        nome_completo: string | null; 
-        avatar_url: string | null; 
-    } | null;
+    servicos: { nome: string; preco: number; } | null;
+    barbeiro: { nome_completo: string | null; avatar_url: string | null; } | null;
 }
 
 export default function ClienteDashboard() {
@@ -39,12 +31,7 @@ export default function ClienteDashboard() {
 
             const { data, error } = await supabase
                 .from('agendamentos')
-                .select(`
-                    id,
-                    data_hora,
-                    servicos ( nome, preco ),
-                    barbeiro: perfis!agendamentos_barbeiro_id_fkey ( nome_completo, avatar_url )
-                `)
+                .select(`id, data_hora, servicos ( nome, preco ), barbeiro: perfis!agendamentos_barbeiro_id_fkey ( nome_completo, avatar_url )`)
                 .eq('cliente_id', session.user.id)
                 .gte('data_hora', new Date().toISOString())
                 .order('data_hora', { ascending: true });
@@ -52,9 +39,6 @@ export default function ClienteDashboard() {
             if (error) {
                 console.error("Erro ao buscar agendamentos:", error);
             } else {
-                // --- A CORREÇÃO DEFINITIVA ---
-                // Usamos 'as unknown as Agendamento[]' para forçar a tipagem correta.
-                // Isso diz ao TypeScript para "esquecer" o que ele acha que sabe e confiar na nossa definição.
                 setAgendamentos(data as unknown as Agendamento[] || []);
             }
             
@@ -88,10 +72,10 @@ export default function ClienteDashboard() {
                 <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="self-start sm:self-center rounded-lg bg-red-600 px-5 py-2 text-white transition hover:bg-red-700">Sair</button>
             </header>
             <main>
-                <div className="mb-8 text-center">
-                    <Link href="/agendar/servico" className="inline-block rounded-lg bg-blue-600 px-8 py-4 text-lg font-bold text-white transition hover:bg-blue-700 shadow-md hover:shadow-lg">
-                        Agendar Novo Horário
-                    </Link>
+                {/* --- MUDANÇA IMPORTANTE --- */}
+                <div className="mb-8 text-center bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 max-w-3xl mx-auto">
+                    <p className="font-semibold">Para agendar um novo horário, visite a página da barbearia.</p>
+                    <p className="text-sm">Por exemplo: <a href="http://nossabarbearia.localhost:3000/agendar/servico" className="font-bold underline">nossabarbearia.localhost:3000/agendar/servico</a></p>
                 </div>
 
                 <div className="mx-auto max-w-3xl">
@@ -103,7 +87,6 @@ export default function ClienteDashboard() {
                             const diaMes = data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
                             const horario = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-                            // LÓGICA DE EXIBIÇÃO CORRETA (que espera objetos)
                             const servico = ag.servicos;
                             const barbeiro = ag.barbeiro;
 

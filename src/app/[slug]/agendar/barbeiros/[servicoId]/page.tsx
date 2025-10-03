@@ -52,7 +52,7 @@ export default function EscolherBarbeiroPage({ params }: { params: { slug: strin
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
                     {/* Adicionamos um link de "Voltar" que mantém o slug */}
-                    <Link href={`/${params.slug}/agendar/servico`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Serviços</Link>
+                    <Link href={`/agendar/servico`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Serviços</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 2: Escolha o profissional</p>
                 </header>
@@ -61,7 +61,7 @@ export default function EscolherBarbeiroPage({ params }: { params: { slug: strin
                         <div className="space-y-4">
                             {barbeiros.length > 0 ? barbeiros.map(barbeiro => (
                                 // O link agora propaga o slug para a próxima etapa
-                                <Link key={barbeiro.id} href={`/${params.slug}/agendar/horarios/${barbeiro.id}/${params.servicoId}`} className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
+                                <Link key={barbeiro.id} href={'/agendar/horarios/${barbeiro.id}/${params.servicoId}'} className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
                                     {barbeiro.avatar_url ? (
                                         <Image src={barbeiro.avatar_url} alt={`Foto de ${barbeiro.nome_completo}`} width={56} height={56} className="h-14 w-14 rounded-full object-cover"/>
                                     ) : (
