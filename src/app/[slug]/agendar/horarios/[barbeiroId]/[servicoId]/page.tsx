@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation"; // 1. usePathname importado
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function EscolherHorarioPage({ params }: { params: { slug: string, barbeiroId: string, servicoId: string } }) {
@@ -12,7 +12,7 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
     const [horarioSelecionado, setHorarioSelecionado] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
-    const pathname = usePathname(); // 2. Hook para pegar a URL atual
+    const pathname = usePathname();
 
     useEffect(() => {
         const gerarHorarios = async () => {
@@ -76,12 +76,17 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
         setIsSubmitting(true);
         const { data: { user } } = await supabase.auth.getUser();
 
-        // --- 3. LÓGICA DE REDIRECIONAMENTO ---
         if (!user) {
             alert("Você precisa estar logado para agendar. Vamos te redirecionar para a página de login.");
-            // Guardamos a URL atual para saber para onde voltar
             localStorage.setItem('redirectTo', pathname);
-            router.push('/login');
+            router.push(`/${params.slug}/login`);
+            return;
+        }
+
+        const { data: barbeariaData } = await supabase.from('barbearias').select('id').eq('slug', params.slug).single();
+        if (!barbeariaData) {
+            alert("Erro: não foi possível identificar a barbearia.");
+            setIsSubmitting(false);
             return;
         }
 
@@ -94,13 +99,14 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
             barbeiro_id: params.barbeiroId,
             servico_id: params.servicoId,
             data_hora: dataHoraAgendamento.toISOString(),
+            barbearia_id: barbeariaData.id,
         });
 
         if (error) {
             alert("Erro ao criar agendamento: " + error.message);
         } else {
             alert("Agendamento realizado com sucesso!");
-            router.push('/cliente/dashboard');
+            router.push(`/${params.slug}/cliente/dashboard`);
         }
         setIsSubmitting(false);
     };
@@ -109,7 +115,7 @@ export default function EscolherHorarioPage({ params }: { params: { slug: string
          <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8 text-gray-800">
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
-                    <Link href={`/${params.slug}/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
+                    <Link href={`/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 3: Escolha a data e o horário</p>
                 </header>

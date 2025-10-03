@@ -13,26 +13,37 @@ type Agendamento = {
     servicos: { nome: string; preco: number; } | null;
     barbeiro: { nome_completo: string | null; avatar_url: string | null; } | null;
 }
+type BarbeariaInfo = { id: number; nome: string; }
 
-export default function ClienteDashboard() {
+export default function ClienteDashboard({ params }: { params: { slug: string } }) {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+    const [barbearia, setBarbearia] = useState<BarbeariaInfo | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                router.push('/login');
+                router.push(`/${params.slug}/login`);
                 return;
             }
             setUser(session.user);
 
+            const { data: barbeariaData } = await supabase.from('barbearias').select('id, nome').eq('slug', params.slug).single();
+            if (!barbeariaData) {
+                setLoading(false);
+                alert("Barbearia não encontrada.");
+                return;
+            }
+            setBarbearia(barbeariaData);
+
             const { data, error } = await supabase
                 .from('agendamentos')
-                .select(`id, data_hora, servicos ( nome, preco ), barbeiro: perfis!agendamentos_barbeiro_id_fkey ( nome_completo, avatar_url )`)
+                .select(`id, data_hora, servicos ( nome, preco ), barbeiro: perfis ( nome_completo, avatar_url )`)
                 .eq('cliente_id', session.user.id)
+                .eq('barbearia_id', barbeariaData.id)
                 .gte('data_hora', new Date().toISOString())
                 .order('data_hora', { ascending: true });
             
@@ -41,11 +52,10 @@ export default function ClienteDashboard() {
             } else {
                 setAgendamentos(data as unknown as Agendamento[] || []);
             }
-            
             setLoading(false);
         };
         fetchData();
-    }, [router]);
+    }, [params.slug, router]);
 
     const handleCancelarAgendamento = async (agendamentoId: number) => {
         if (!window.confirm("Tem certeza que deseja cancelar este agendamento?")) return;
@@ -59,23 +69,23 @@ export default function ClienteDashboard() {
     };
     
     if (loading) {
-        return <div className="flex min-h-screen items-center justify-center"><p>Carregando...</p></div>
+        return <div className="flex min-h-screen items-center justify-center"><p>Carregando painel...</p></div>
     }
 
     return (
         <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
             <header className="mb-10 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Meu Painel</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">Meu Painel - {barbearia?.nome}</h1>
                     {user && <p className="text-gray-600">Bem-vindo de volta!</p>}
                 </div>
-                <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="self-start sm:self-center rounded-lg bg-red-600 px-5 py-2 text-white transition hover:bg-red-700">Sair</button>
+                <button onClick={async () => { await supabase.auth.signOut(); router.push(`/${params.slug}/login`); }} className="self-start sm:self-center rounded-lg bg-red-600 px-5 py-2 text-white transition hover:bg-red-700">Sair</button>
             </header>
             <main>
-                {/* --- MUDANÇA IMPORTANTE --- */}
-                <div className="mb-8 text-center bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 max-w-3xl mx-auto">
-                    <p className="font-semibold">Para agendar um novo horário, visite a página da barbearia.</p>
-                    <p className="text-sm">Por exemplo: <a href="http://nossabarbearia.localhost:3000/agendar/servico" className="font-bold underline">nossabarbearia.localhost:3000/agendar/servico</a></p>
+                <div className="mb-8 text-center">
+                    <Link href={`/agendar/servico`} className="inline-block rounded-lg bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-md hover:shadow-lg">
+                        Agendar Novo Horário
+                    </Link>
                 </div>
 
                 <div className="mx-auto max-w-3xl">
@@ -86,7 +96,6 @@ export default function ClienteDashboard() {
                             const diaSemana = data.toLocaleDateString('pt-BR', { weekday: 'long' });
                             const diaMes = data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
                             const horario = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
                             const servico = ag.servicos;
                             const barbeiro = ag.barbeiro;
 
@@ -124,7 +133,7 @@ export default function ClienteDashboard() {
                             );
                         }) : (
                             <div className="rounded-lg bg-white p-6 shadow-md text-center">
-                                <p className="text-gray-500">Você ainda não tem agendamentos futuros.</p>
+                                <p className="text-gray-500">Você ainda não tem agendamentos nesta barbearia.</p>
                             </div>
                         )}
                     </div>
