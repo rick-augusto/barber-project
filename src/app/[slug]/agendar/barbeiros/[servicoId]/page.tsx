@@ -1,23 +1,23 @@
-// src/app/agendar/barbeiros/[servicoId]/page.tsx
 'use client'
 
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import Image from "next/image"; // Importar o componente de Imagem
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
-// Atualizar o tipo para incluir a URL do avatar
 type Barbeiro = { 
     id: string; 
     nome_completo: string | null;
     avatar_url: string | null; 
 }
 
-export default function EscolherBarbeiroPage({ params }: { params: { servicoId: string } }) {
+// A página agora recebe 'slug' e 'servicoId' nos params
+export default function EscolherBarbeiroPage({ params }: { params: { slug: string, servicoId: string } }) {
     const [barbeiros, setBarbeiros] = useState<Barbeiro[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // A lógica de busca de barbeiros por habilidade já está correta, não precisa mudar.
         const fetchBarbeiros = async () => {
             const { data: habilidades, error: errHab } = await supabase
                 .from('barbeiro_habilidades')
@@ -31,7 +31,6 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
 
             const barbeiroIds = habilidades.map(h => h.barbeiro_id);
 
-            // Atualizar a busca para incluir o avatar_url
             const { data, error } = await supabase
                 .from('perfis')
                 .select('id, nome_completo, avatar_url')
@@ -51,7 +50,9 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
     return (
          <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8">
             <div className="w-full max-w-2xl">
-                 <header className="mb-8 text-center">
+                <header className="mb-8 text-center">
+                    {/* Adicionamos um link de "Voltar" que mantém o slug */}
+                    <Link href={`/${params.slug}/agendar/servico`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Serviços</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 2: Escolha o profissional</p>
                 </header>
@@ -59,7 +60,8 @@ export default function EscolherBarbeiroPage({ params }: { params: { servicoId: 
                     {loading ? <p>Buscando profissionais...</p> : (
                         <div className="space-y-4">
                             {barbeiros.length > 0 ? barbeiros.map(barbeiro => (
-                                <Link key={barbeiro.id} href={`/agendar/horarios/${barbeiro.id}/${params.servicoId}`} className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
+                                // O link agora propaga o slug para a próxima etapa
+                                <Link key={barbeiro.id} href={`/${params.slug}/agendar/horarios/${barbeiro.id}/${params.servicoId}`} className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 hover:shadow-md">
                                     {barbeiro.avatar_url ? (
                                         <Image src={barbeiro.avatar_url} alt={`Foto de ${barbeiro.nome_completo}`} width={56} height={56} className="h-14 w-14 rounded-full object-cover"/>
                                     ) : (

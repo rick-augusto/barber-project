@@ -1,4 +1,3 @@
-// src/app/agendar/horarios/[barbeiroId]/[servicoId]/page.tsx
 'use client'
 
 import { supabase } from "@/lib/supabaseClient";
@@ -6,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function EscolherHorarioPage({ params }: { params: { barbeiroId: string, servicoId: string } }) {
+// A página agora recebe 'slug' nos parâmetros, além dos outros IDs
+export default function EscolherHorarioPage({ params }: { params: { slug: string, barbeiroId: string, servicoId: string } }) {
     const [diasDisponiveis, setDiasDisponiveis] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(true);
     const [diaSelecionado, setDiaSelecionado] = useState('');
@@ -29,10 +29,12 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
             const horariosOcupados = agendamentos?.map(a => new Date(a.data_hora).getTime()) || [];
 
             const slotsDisponiveis: Record<string, string[]> = {};
-            for (let i = 0; i < 7; i++) { // Gera para os próximos 7 dias
+            for (let i = 0; i < 7; i++) {
                 const dataAtual = new Date();
-                dataAtual.setDate(dataAtual.getDate() + i);
-                const diaSemana = dataAtual.getUTCDay();
+                dataAtual.setUTCHours(0, 0, 0, 0); // Zera a hora para evitar problemas de fuso
+                dataAtual.setUTCDate(dataAtual.getUTCDate() + i);
+
+                const diaSemana = dataAtual.getUTCDay(); // 0 = Domingo, 1 = Segunda...
                 const dataISO = dataAtual.toISOString().split('T')[0];
 
                 const horarioDoDia = horariosTrabalho.find(h => h.dia_semana === diaSemana);
@@ -50,7 +52,9 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
 
                 while (slotAtual.getTime() < fimDoDia.getTime()) {
                     if (!horariosOcupados.includes(slotAtual.getTime())) {
-                        slotsDisponiveis[dataISO].push(slotAtual.toUTCString().substring(17, 22));
+                        const horaFormatada = slotAtual.getUTCHours().toString().padStart(2, '0');
+                        const minutoFormatado = slotAtual.getUTCMinutes().toString().padStart(2, '0');
+                        slotsDisponiveis[dataISO].push(`${horaFormatada}:${minutoFormatado}`);
                     }
                     slotAtual.setUTCMinutes(slotAtual.getUTCMinutes() + servico.duracao_minutos);
                 }
@@ -61,8 +65,9 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
 
         gerarHorarios();
     }, [params.barbeiroId, params.servicoId]);
-
+    
     const handleConfirmarAgendamento = async () => {
+        // A lógica de confirmação permanece a mesma, pois não depende do slug
         if (!diaSelecionado || !horarioSelecionado) {
             alert("Por favor, selecione um dia e um horário.");
             return;
@@ -76,14 +81,15 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
         }
 
         const [hora, minuto] = horarioSelecionado.split(':').map(Number);
-        const dataHoraAgendamento = new Date(diaSelecionado);
-        dataHoraAgendamento.setUTCHours(hora, minuto, 0, 0);
+        const dataHoraAgendamento = new Date(`${diaSelecionado}T00:00:00.000Z`);
+        dataHoraAgendamento.setUTCHours(hora, minuto);
 
         const { error } = await supabase.from('agendamentos').insert({
             cliente_id: user.id,
             barbeiro_id: params.barbeiroId,
             servico_id: params.servicoId,
             data_hora: dataHoraAgendamento.toISOString(),
+            // Futuramente, podemos adicionar o barbearia_id aqui também
         });
 
         if (error) {
@@ -99,7 +105,8 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
          <div className="flex min-h-screen flex-col items-center bg-gray-100 p-8 text-gray-800">
             <div className="w-full max-w-2xl">
                 <header className="mb-8 text-center">
-                    <Link href={`/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
+                    {/* O link de "Voltar" agora usa o slug dinâmico */}
+                    <Link href={`/${params.slug}/agendar/barbeiros/${params.servicoId}`} className="text-blue-600 hover:underline mb-4 block">&larr; Voltar para Profissionais</Link>
                     <h1 className="text-4xl font-bold text-gray-800">Agendar Horário</h1>
                     <p className="mt-2 text-lg text-gray-600">Passo 3: Escolha a data e o horário</p>
                 </header>
@@ -111,7 +118,7 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
                                 <select onChange={(e) => setDiaSelecionado(e.target.value)} className="w-full mt-2 p-2 border rounded-md">
                                     <option value="">Selecione uma data</option>
                                     {Object.keys(diasDisponiveis).map(dia => (
-                                        <option key={dia} value={dia}>{new Date(dia + 'T12:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit' })}</option>
+                                        <option key={dia} value={dia}>{new Date(dia + 'T12:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: 'long' })}</option>
                                     ))}
                                 </select>
                             </div>
@@ -119,9 +126,9 @@ export default function EscolherHorarioPage({ params }: { params: { barbeiroId: 
                             {diaSelecionado && (
                                 <div>
                                     <label className="font-medium">Horários disponíveis:</label>
-                                    <div className="grid grid-cols-4 gap-2 mt-2">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
                                         {diasDisponiveis[diaSelecionado]?.length > 0 ? diasDisponiveis[diaSelecionado].map(hora => (
-                                            <button key={hora} onClick={() => setHorarioSelecionado(hora)} className={`p-2 rounded-md text-center ${horarioSelecionado === hora ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                                            <button key={hora} onClick={() => setHorarioSelecionado(hora)} className={`p-2 rounded-md text-center transition ${horarioSelecionado === hora ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}>
                                                 {hora}
                                             </button>
                                         )) : <p>Nenhum horário disponível para este dia.</p>}
