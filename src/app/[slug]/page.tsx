@@ -1,111 +1,102 @@
-'use client'
+// src/app/[slug]/page.tsx
+'use client';
 
-import { supabase } from "@/lib/supabaseClient";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useBarbearia } from '@/contexts/BarbeariaContext';
 
-type Service = { id: number; nome: string; preco: number; duracao_minutos: number; }
-type BarbeariaInfo = { id: number; nome: string; endereco: string | null; telefone: string | null; }
+type Barbearia = {
+  id: number;
+  nome: string;
+  slug: string;
+};
 
-export default function PaginaDaBarbearia({ params }: { params: { slug: string } }) {
-    const [barbearia, setBarbearia] = useState<BarbeariaInfo | null>(null);
-    const [servicos, setServicos] = useState<Service[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+export default function PaginaDaBarbearia() {
+  const params = useParams();
+  const slug = params.slug as string;
+  
+  const { setBarbeariaId, setSlug } = useBarbearia();
+  const [barbearia, setBarbearia] = useState<Barbearia | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchDadosDaBarbearia = async () => {
-            const { data: barbeariaData, error: barbeariaError } = await supabase
-                .from('barbearias')
-                .select('id, nome, endereco, telefone')
-                .eq('slug', params.slug)
-                .single();
+  useEffect(() => {
+    const fetchDadosDaBarbearia = async () => {
+      if (!slug) {
+        setLoading(false);
+        setError('Slug da barbearia não encontrado na URL.');
+        return;
+      }
 
-            if (barbeariaError || !barbeariaData) {
-                setError("Barbearia não encontrada ou indisponível.");
-                setLoading(false);
-                return;
-            }
-            setBarbearia(barbeariaData);
+      const { data, error: fetchError } = await supabase
+        .from('barbearias')
+        .select('*')
+        .eq('slug', slug)
+        .single();
 
-            const { data: servicosData, error: servicosError } = await supabase
-                .from('servicos')
-                .select('*')
-                .eq('id_barbearia', barbeariaData.id)
-                .order('nome')
-                .limit(4);
+      if (fetchError || !data) {
+        setError('Barbearia não encontrada.');
+      } else {
+        setBarbearia(data);
+        if (setBarbeariaId) setBarbeariaId(data.id);
+        if (setSlug) setSlug(data.slug);
+      }
+      setLoading(false);
+    };
 
-            if (servicosError) {
-                console.error("Erro ao buscar serviços:", servicosError);
-            } else {
-                setServicos(servicosData || []);
-            }
-            
-            setLoading(false);
-        };
+    fetchDadosDaBarbearia();
+  }, [slug, setBarbeariaId, setSlug]);
 
-        if (params.slug) {
-            fetchDadosDaBarbearia();
-        }
-    }, [params.slug]);
+  if (loading) return <div className="flex h-screen items-center justify-center bg-gray-900 text-white"><p>Carregando...</p></div>;
+  if (error || !barbearia) return <div className="flex h-screen items-center justify-center bg-gray-100 text-red-500"><p>{error}</p></div>;
 
-    if (loading) return <div className="flex h-screen items-center justify-center bg-gray-900 text-white"><p>Carregando...</p></div>;
-    if (error || !barbearia) return <div className="flex h-screen items-center justify-center bg-gray-100 text-red-500"><p>{error}</p></div>;
+  return (
+    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 bg-white dark:bg-black">
+      <main className="flex flex-col gap-8 row-start-2 items-center text-center">
+        
+        <h1 className="text-5xl font-bold text-gray-900 dark:text-gray-100">{barbearia.nome}</h1>
 
-    return (
-        <div className="bg-white text-gray-800">
-            {/* Seção Principal (Hero) */}
-            <section className="bg-gray-900 text-white text-center py-20 sm:py-32">
-                <h1 className="text-5xl sm:text-7xl font-bold tracking-tight">{barbearia.nome}</h1>
-                <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">A qualidade que você merece, a experiência que você procura. Agende seu horário com os melhores.</p>
-                <div className="mt-10 flex justify-center gap-4">
-                    <Link href="/agendar/servico" className="rounded-md bg-blue-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition hover:bg-blue-700">
-                        Agendar Horário
-                    </Link>
-                    <Link href="/login" className="rounded-md bg-gray-700 px-8 py-3 text-lg font-semibold text-white shadow-lg transition hover:bg-gray-600">
-                        Login
-                    </Link>
-                </div>
-            </section>
+        <p className="text-lg text-gray-600 dark:text-gray-300">
+          Bem-vindo ao nosso sistema de agendamento.
+        </p>
 
-            {/* Seção de Serviços */}
-            {servicos.length > 0 && (
-                <section className="py-16 sm:py-24 bg-gray-50">
-                    <div className="container mx-auto px-4">
-                        <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">Nossos Serviços</h2>
-                        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                            {servicos.map(servico => (
-                                <div key={servico.id} className="rounded-lg border border-gray-200 bg-white p-6 text-center">
-                                    <h3 className="text-xl font-semibold text-gray-800">{servico.nome}</h3>
-                                    <p className="mt-2 text-sm text-gray-500">{servico.duracao_minutos} minutos</p>
-                                    <p className="mt-4 text-2xl font-bold text-gray-900">R$ {Number(servico.preco).toFixed(2)}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-center mt-12">
-                            <Link href="/agendar/servico" className="text-blue-600 font-semibold hover:underline">
-                                Ver todos os serviços e agendar &rarr;
-                            </Link>
-                        </div>
-                    </div>
-                </section>
-            )}
-
-            {/* Seção de Contato e Localização */}
-            <section className="bg-white py-16 sm:py-24">
-                <div className="container mx-auto px-4 text-center">
-                    <h2 className="text-4xl font-bold text-gray-900 mb-8">Onde nos encontrar</h2>
-                    <div className="text-lg text-gray-700 space-y-2">
-                        <p>📍 {barbearia.endereco || 'Endereço não informado'}</p>
-                        <p>📱 {barbearia.telefone || 'WhatsApp não informado'}</p>
-                    </div>
-                </div>
-            </section>
-
-            {/* Rodapé */}
-            <footer className="bg-gray-900 text-white p-6 text-center text-sm">
-                <p>&copy; {new Date().getFullYear()} {barbearia.nome} | Desenvolvido por BarberProject</p>
-            </footer>
+        <div className="flex gap-4 items-center flex-col sm:flex-row mt-4">
+          {/* --- CORREÇÃO AQUI --- */}
+          <Link
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium h-12 px-6 text-base"
+            href="/login" // Caminho simplificado
+          >
+            Fazer Login
+          </Link>
+          {/* --- CORREÇÃO AQUI --- */}
+          <Link
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] h-12 px-6 text-base"
+            href="/agendar/servico" // Caminho simplificado
+          >
+            Agendar Horário
+          </Link>
         </div>
-    );
+      </main>
+
+      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
+        <span className="text-sm text-gray-500">Powered by</span>
+        <a
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            className="dark:invert"
+            src="/next.svg"
+            alt="Next.js logomark"
+            width={90}
+            height={19}
+          />
+        </a>
+      </footer>
+    </div>
+  );
 }

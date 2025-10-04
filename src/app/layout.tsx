@@ -1,7 +1,8 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { BarbeariaProvider } from "@/contexts/BarbeariaContext"; // Importado
+import { BarbeariaProvider } from "@/contexts/BarbeariaContext"; // Importe o provedor
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="pt-br">
       <body className={inter.className}>
-        {/* O Provider agora envolve toda a aplicação */}
+        {/* O Provedor agora envolve toda a aplicação */}
         <BarbeariaProvider>
           {children}
         </BarbeariaProvider>

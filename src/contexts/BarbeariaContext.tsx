@@ -1,60 +1,64 @@
-'use client'
+// src/contexts/BarbeariaContext.tsx
+'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, Dispatch, SetStateAction } from 'react';
+import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
-// Tipagem para os dados da barbearia que vamos guardar
-type Barbearia = {
-  id: number;
-  nome: string;
-  slug?: string; // Slug para o subdomínio
-};
+interface BarbeariaContextType {
+  barbeariaId: number | null;
+  setBarbeariaId: Dispatch<SetStateAction<number | null>>;
+  slug: string | null;
+  setSlug: Dispatch<SetStateAction<string | null>>;
+  isLoading: boolean; // Adicionamos um estado de carregamento
+}
 
-// Tipagem para o valor do nosso contexto
-type BarbeariaContextType = {
-  barbearia: Barbearia | null;
-  setBarbearia: (barbearia: Barbearia | null) => void;
-  isLoading: boolean;
-};
-
-// Cria o contexto
 const BarbeariaContext = createContext<BarbeariaContextType | undefined>(undefined);
 
-// Cria o "Provedor" do contexto
 export function BarbeariaProvider({ children }: { children: ReactNode }) {
-  const [barbearia, setBarbearia] = useState<Barbearia | null>(null);
+  const [barbeariaId, setBarbeariaId] = useState<number | null>(null);
+  const [slug, setSlug] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname();
 
-  // Efeito para carregar dados do localStorage, se existirem, para persistir a sessão da barbearia
   useEffect(() => {
-    try {
-      const storedBarbearia = localStorage.getItem('barbearia');
-      if (storedBarbearia) {
-        setBarbearia(JSON.parse(storedBarbearia));
-      }
-    } catch (error) {
-      console.error("Falha ao carregar barbearia do localStorage", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    // Este efeito é acionado sempre que a URL muda ou a página é carregada
+    const currentSlug = pathname.split('/')[1];
 
-  const handleSetBarbearia = (novaBarbearia: Barbearia | null) => {
-    setBarbearia(novaBarbearia);
-    if (novaBarbearia) {
-      localStorage.setItem('barbearia', JSON.stringify(novaBarbearia));
-    } else {
-      localStorage.removeItem('barbearia');
+    // Se o slug da URL for válido e diferente do que já temos, busca os dados
+    if (currentSlug && currentSlug !== slug) {
+      setIsLoading(true);
+      const fetchBarbearia = async () => {
+        const { data, error } = await supabase
+          .from('barbearias')
+          .select('id, slug')
+          .eq('slug', currentSlug)
+          .single();
+
+        if (data) {
+          setBarbeariaId(data.id);
+          setSlug(data.slug);
+        } else {
+          console.error("Barbearia não encontrada para o slug:", currentSlug);
+          setBarbeariaId(null);
+          setSlug(null);
+        }
+        setIsLoading(false); // Carregamento concluído
+      };
+      fetchBarbearia();
+    } else if (!currentSlug || currentSlug === slug) {
+        // Se não há slug ou ele já é o mesmo, não estamos a carregar
+        setIsLoading(false);
     }
-  };
+  }, [pathname, slug]);
 
   return (
-    <BarbeariaContext.Provider value={{ barbearia, setBarbearia: handleSetBarbearia, isLoading }}>
+    <BarbeariaContext.Provider value={{ barbeariaId, setBarbeariaId, slug, setSlug, isLoading }}>
       {children}
     </BarbeariaContext.Provider>
   );
 }
 
-// Cria um "Hook" customizado para facilitar o uso do contexto
 export function useBarbearia() {
   const context = useContext(BarbeariaContext);
   if (context === undefined) {
